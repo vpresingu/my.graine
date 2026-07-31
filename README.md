@@ -25,6 +25,13 @@ My-Graine/
 
 ## Running it
 
+### 0. Prerequisites
+
+- Python 3.11+ and Node.js 18+
+- [Ollama](https://ollama.com) installed and running, with the model pulled:
+  `ollama pull gemma4` — required for all AI features (extraction, triggers,
+  phenotype, progress, patient history). Everything runs on your own machine.
+
 ### 1. Install backend dependencies
 
 ```
@@ -39,6 +46,13 @@ pip install -r requirements.txt
 ```
 cd frontend
 npm install
+```
+
+### 2b. Load the demo data
+
+```
+cd backend
+python seed.py     # builds the local database from data/migraine_log.json (90 days)
 ```
 
 ### 3. Start in dev mode (two terminals)
