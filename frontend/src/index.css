@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/* Print only the clinician one-pager (Patient History → Export to PDF). */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #history-doc,
+  #history-doc * {
+    visibility: visible;
+  }
+  #history-doc {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    border: none;
+    box-shadow: none;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.35s ease-out;
+}
+
+@theme {
+  --color-coral-50: #fff5f3;
+  --color-coral-100: #ffe3df;
+  --color-coral-200: #ffc9c2;
+  --color-coral-300: #ffa396;
+  --color-coral-400: #fb7a68;
+  --color-coral-500: #f2543f;
+  --color-coral-600: #dd3a25;
+  --color-coral-700: #b92e1c;
+}
