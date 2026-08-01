@@ -20,7 +20,7 @@ const COLUMNS = [
   { key: "notes", label: "Note", get: (r) => ((r.notes || "").trim() ? 1 : 0) },
 ];
 
-export default function RecordsLog({ records }) {
+export default function RecordsLog({ records, lastSavedDay }) {
   const [sort, setSort] = useState({ key: "day", dir: "desc" }); // newest first
   const [migraineOnly, setMigraineOnly] = useState(false);
   const [withNoteOnly, setWithNoteOnly] = useState(false);
@@ -31,7 +31,6 @@ export default function RecordsLog({ records }) {
   const [expanded, setExpanded] = useState(null);
   const [flashNew, setFlashNew] = useState(true);
 
-  const today = new Intl.DateTimeFormat("en-CA").format(new Date());
   useEffect(() => {
     const t = setTimeout(() => setFlashNew(false), 5000);
     return () => clearTimeout(t);
@@ -165,7 +164,9 @@ export default function RecordsLog({ records }) {
           </thead>
           <tbody className="text-slate-600">
             {pageRows.map((r, i) => {
-              const isNew = flashNew && r.date === today;
+              // Highlight only a day actually saved this session — a seed row
+              // that happens to be dated today must not flash as new.
+              const isNew = flashNew && lastSavedDay !== null && r.day === lastSavedDay;
               const hasNotes = (r.notes || "").trim().length > 0;
               const isOpen = expanded === r.day;
               return [

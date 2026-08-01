@@ -26,6 +26,7 @@ export default function App() {
   const [screen, setScreen] = useState("Dashboard");
   const [progress, setProgress] = useState({ state: "loading" });
   const [resetState, setResetState] = useState(null);
+  const [lastSavedDay, setLastSavedDay] = useState(null);
 
   const loadData = useCallback(() => {
     fetch("/api/records")
@@ -62,11 +63,15 @@ export default function App() {
   }, [loadData, loadProgress]);
 
   // The timeline changed (day saved): stale analyses must not survive.
-  const handleSaved = useCallback(() => {
-    loadData();
-    invalidateAnalyses();
-    loadProgress();
-  }, [loadData, loadProgress]);
+  const handleSaved = useCallback(
+    (day) => {
+      setLastSavedDay(day ?? null);
+      loadData();
+      invalidateAnalyses();
+      loadProgress();
+    },
+    [loadData, loadProgress]
+  );
 
   // Rehearsal helper, not part of the demo: restore the original seed data.
   async function resetDemoData() {
@@ -162,7 +167,7 @@ export default function App() {
               </div>
             )
           ) : screen === "Daily Log" ? (
-            <DailyLog onSaved={handleSaved} />
+            <DailyLog onSaved={handleSaved} lastRecord={records[records.length - 1]} />
           ) : screen === "Trigger Insights" ? (
             <TriggerInsights records={records} />
           ) : screen === "Progress" ? (
@@ -172,7 +177,7 @@ export default function App() {
           ) : screen === "Patient History" ? (
             <PatientHistory recordCount={records.length} />
           ) : (
-            <RecordsLog records={records} />
+            <RecordsLog records={records} lastSavedDay={lastSavedDay} />
           )}
         </main>
       </div>

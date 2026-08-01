@@ -23,7 +23,23 @@ function Field({ label, hint, children }) {
   );
 }
 
-export default function DailyLog({ onSaved }) {
+// The diary is strictly one row per calendar day. If the last record is
+// already dated today (or later), the next entry belongs to the following
+// day — otherwise saving would stack two records on one date and the
+// calendar/analyses would double-count that day.
+function nextEntryDate(lastRecord) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  if (lastRecord) {
+    const dayAfter = new Date(
+      new Date(lastRecord.date + "T00:00:00").getTime() + 86400000
+    );
+    if (dayAfter > today) return dayAfter;
+  }
+  return today;
+}
+
+export default function DailyLog({ onSaved, lastRecord }) {
   const [form, setForm] = useState({
     severity_0to10: 0,
     phase: "none",
@@ -46,7 +62,15 @@ export default function DailyLog({ onSaved }) {
   const set = (key, value) => {
     setForm((f) => ({ ...f, [key]: value }));
     setTouched((t) => ({ ...t, [key]: true }));
+    setSaved(null); // edits after a save mean a new, saveable state
   };
+
+  const entryDate = nextEntryDate(lastRecord);
+  const entryDateLabel = entryDate.toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
 
   const toggleSymptom = (s) =>
     set(
@@ -103,10 +127,9 @@ export default function DailyLog({ onSaved }) {
     if (saving) return;
     setSaving(true);
     setError(null);
-    const now = new Date();
     const body = {
-      date: new Intl.DateTimeFormat("en-CA").format(now), // local YYYY-MM-DD
-      weekday: now.toLocaleDateString("en-US", { weekday: "long" }),
+      date: new Intl.DateTimeFormat("en-CA").format(entryDate), // local YYYY-MM-DD
+      weekday: entryDate.toLocaleDateString("en-US", { weekday: "long" }),
       wellbeing_1to10: extraction?.wellbeing_1to10 ?? 5,
       migraine,
       severity_0to10: form.severity_0to10,
@@ -134,7 +157,7 @@ export default function DailyLog({ onSaved }) {
       }
       const rec = await resp.json();
       setSaved(rec.day);
-      onSaved?.();
+      onSaved?.(rec.day);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -284,7 +307,10 @@ export default function DailyLog({ onSaved }) {
             <textarea
               rows={6}
               value={freeText}
-              onChange={(e) => setFreeText(e.target.value)}
+              onChange={(e) => {
+                setFreeText(e.target.value);
+                setSaved(null);
+              }}
               placeholder="e.g. Slept badly, woke up yawning with a stiff neck and brain fog. No headache yet but it feels like one is coming…"
               className="mt-2 w-full resize-none rounded-xl border border-slate-200 p-4 text-sm leading-relaxed text-slate-800 placeholder:text-slate-300 focus:border-coral-400 focus:outline-none"
             />
@@ -382,10 +408,14 @@ export default function DailyLog({ onSaved }) {
 
               <button
                 onClick={saveDay}
-                disabled={saving}
+                disabled={saving || saved !== null}
                 className="w-full rounded-xl bg-slate-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-900 disabled:bg-slate-300"
               >
-                {saving ? "Saving…" : "Save day"}
+                {saving
+                  ? "Saving…"
+                  : saved !== null
+                    ? "Saved ✓"
+                    : `Save day — ${entryDateLabel}`}
               </button>
 
               {saved !== null && (

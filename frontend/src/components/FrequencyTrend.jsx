@@ -33,8 +33,7 @@ export default function FrequencyTrend({ records, fullRecords }) {
   const firstShown = records[0]?.day ?? 0;
   const series = trailing28Series(all).filter((p) => p.day >= firstShown);
   const preventiveDay = firstPreventiveDay(all);
-  const showRef =
-    preventiveDay !== null && series.some((p) => p.day >= preventiveDay);
+  const showRef = preventiveDay !== null && preventiveDay >= firstShown;
 
   if (series.length < 2) {
     return (
