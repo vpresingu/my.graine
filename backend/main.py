@@ -25,11 +25,15 @@ import gemma
 import seed as seed_module
 from db import get_session, init_db
 from models import (
+    BASE_SYMPTOMS,
+    SYMPTOM_GROUPS,
     DayRecord,
     ExtractionResult,
     PhenotypeResult,
     ProgressResult,
     TriggersResult,
+    UserSymptom,
+    normalize_symptom,
 )
 from prompts import extract as extract_prompt
 from prompts import history as history_prompt
@@ -230,10 +234,53 @@ def _load_timeline(session: Session) -> list[dict]:
     return [r.model_dump() for r in records]
 
 
+class SymptomRequest(BaseModel):
+    name: str
+
+
+def _custom_symptoms(session: Session) -> list[str]:
+    return [
+        s.name
+        for s in session.exec(select(UserSymptom).order_by(UserSymptom.name)).all()
+    ]
+
+
+@app.get("/api/symptoms")
+def list_symptoms(session: Session = Depends(get_session)) -> dict:
+    """The user's symptom vocabulary: the clinical base set (grouped by
+    phase) plus their own added labels."""
+    return {"groups": SYMPTOM_GROUPS, "custom": _custom_symptoms(session)}
+
+
+@app.post("/api/symptoms")
+def add_symptom(req: SymptomRequest, session: Session = Depends(get_session)) -> dict:
+    name = normalize_symptom(req.name)
+    if not name:
+        raise HTTPException(status_code=422, detail="Symptom name is empty")
+    if name not in BASE_SYMPTOMS and session.get(UserSymptom, name) is None:
+        session.add(UserSymptom(name=name))
+        session.commit()
+    return {"added": name, "custom": _custom_symptoms(session)}
+
+
+@app.delete("/api/symptoms/{name}")
+def delete_symptom(name: str, session: Session = Depends(get_session)) -> dict:
+    record = session.get(UserSymptom, normalize_symptom(name))
+    if record is None:
+        raise HTTPException(status_code=404, detail=f"No custom symptom {name!r}")
+    session.delete(record)
+    session.commit()
+    return {"deleted": record.name, "custom": _custom_symptoms(session)}
+
+
 @app.post("/api/extract")
-def extract(req: ExtractRequest) -> ExtractionResult:
+def extract(
+    req: ExtractRequest, session: Session = Depends(get_session)
+) -> ExtractionResult:
+    # The prompt adapts to this user: their custom labels extend the schema.
+    allowed = BASE_SYMPTOMS | set(_custom_symptoms(session))
     messages = [
-        {"role": "system", "content": extract_prompt.SYSTEM_PROMPT},
+        {"role": "system", "content": extract_prompt.build_system_prompt(sorted(allowed))},
         {
             "role": "user",
             "content": extract_prompt.build_user_message(
@@ -242,6 +289,17 @@ def extract(req: ExtractRequest) -> ExtractionResult:
         },
     ]
     result = _gemma_json(messages, ExtractionResult)
+
+    # Split the model's labels: known ones stay; clearly-described new ones
+    # become suggestions the user can adopt into their vocabulary.
+    known, suggested = [], []
+    for raw in result.symptoms:
+        name = normalize_symptom(raw)
+        if not name:
+            continue
+        (known if name in allowed else suggested).append(name)
+    result.symptoms = list(dict.fromkeys(known))
+    result.suggested_new_symptoms = list(dict.fromkeys(suggested))
 
     # Deterministic backstop for the short-sleep rule, independent of the model.
     if (

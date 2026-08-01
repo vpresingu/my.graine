@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const PHASES = ["none", "prodrome", "aura+headache", "headache", "postdrome"];
-const SYMPTOMS = ["nausea", "photophobia", "phonophobia", "dizziness", "neck_pain"];
+const GROUP_LABELS = { prodrome: "Prodrome", aura: "Aura", attack: "Attack", custom: "Yours" };
 
 const FLAG_LABELS = {
   short_sleep_elevated_next_day_risk:
@@ -39,7 +39,8 @@ function nextEntryDate(lastRecord) {
   return today;
 }
 
-export default function DailyLog({ onSaved, lastRecord }) {
+export default function DailyLog({ onSaved, records = [] }) {
+  const lastRecord = records[records.length - 1];
   const [form, setForm] = useState({
     severity_0to10: 0,
     phase: "none",
@@ -58,6 +59,52 @@ export default function DailyLog({ onSaved, lastRecord }) {
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(null);
+  const [vocab, setVocab] = useState({ groups: {}, custom: [] });
+  const [newSymptom, setNewSymptom] = useState("");
+  const [adopted, setAdopted] = useState([]); // suggestions already accepted
+
+  useEffect(() => {
+    fetch("/api/symptoms")
+      .then((r) => r.json())
+      .then(setVocab)
+      .catch(() => {});
+  }, []);
+
+  // Personal ordering: within each group, the symptoms *this user* logs most
+  // often come first.
+  const symptomGroups = useMemo(() => {
+    const counts = {};
+    for (const r of records) for (const s of r.symptoms) counts[s] = (counts[s] || 0) + 1;
+    const byFrequency = (a, b) => (counts[b] || 0) - (counts[a] || 0) || a.localeCompare(b);
+    const groups = Object.entries(vocab.groups).map(([key, symptoms]) => ({
+      key,
+      symptoms: [...symptoms].sort(byFrequency),
+    }));
+    groups.push({ key: "custom", symptoms: [...vocab.custom].sort(byFrequency) });
+    return groups;
+  }, [vocab, records]);
+
+  async function addCustomSymptom(name, alsoSelect = false) {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return;
+    try {
+      const r = await fetch("/api/symptoms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: trimmed }),
+      });
+      if (!r.ok) return;
+      const d = await r.json();
+      setVocab((v) => ({ ...v, custom: d.custom }));
+      setNewSymptom("");
+      if (alsoSelect && !form.symptoms.includes(d.added)) {
+        set("symptoms", [...form.symptoms, d.added]);
+        setAdopted((a) => [...a, d.added]);
+      }
+    } catch {
+      /* offline-only app; nothing to report beyond the chip not appearing */
+    }
+  }
 
   const set = (key, value) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -204,21 +251,50 @@ export default function DailyLog({ onSaved, lastRecord }) {
             </div>
           </Field>
 
-          <Field label="Symptoms">
-            <div className="flex flex-wrap gap-2">
-              {SYMPTOMS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => toggleSymptom(s)}
-                  className={`${chipBase} ${
-                    form.symptoms.includes(s)
-                      ? "border-coral-200 bg-coral-50 text-coral-700"
-                      : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
-                  }`}
-                >
-                  {prettySymptom(s)}
-                </button>
-              ))}
+          <Field label="Symptoms" hint="ordered by what you log most">
+            <div className="space-y-3">
+              {symptomGroups.map(({ key, symptoms }) =>
+                symptoms.length ? (
+                  <div key={key}>
+                    <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-slate-300">
+                      {GROUP_LABELS[key] ?? key}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {symptoms.map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => toggleSymptom(s)}
+                          className={`${chipBase} ${
+                            form.symptoms.includes(s)
+                              ? "border-coral-200 bg-coral-50 text-coral-700"
+                              : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                          }`}
+                        >
+                          {prettySymptom(s)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null
+              )}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={newSymptom}
+                  onChange={(e) => setNewSymptom(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && addCustomSymptom(newSymptom)}
+                  placeholder="add your own…"
+                  className="h-9 w-40 rounded-full border border-dashed border-slate-300 px-3.5 text-sm text-slate-700 placeholder:text-slate-300 focus:border-coral-400 focus:outline-none"
+                />
+                {newSymptom.trim() && (
+                  <button
+                    onClick={() => addCustomSymptom(newSymptom)}
+                    className="rounded-full bg-slate-800 px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-slate-900"
+                  >
+                    Add
+                  </button>
+                )}
+              </div>
             </div>
           </Field>
 
@@ -385,6 +461,28 @@ export default function DailyLog({ onSaved, lastRecord }) {
                   </dd>
                 </div>
               </dl>
+
+              {extraction.suggested_new_symptoms?.filter((s) => !adopted.includes(s))
+                .length > 0 && (
+                <div className="rounded-xl bg-slate-50 p-3">
+                  <p className="mb-2 text-xs font-medium text-slate-500">
+                    Your entry mentions symptoms not in your vocabulary yet:
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {extraction.suggested_new_symptoms
+                      .filter((s) => !adopted.includes(s))
+                      .map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => addCustomSymptom(s, true)}
+                          className="rounded-full border border-dashed border-coral-300 bg-white px-3.5 py-1.5 text-sm font-medium text-coral-700 hover:bg-coral-50"
+                        >
+                          + {prettySymptom(s)}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
                 <span className="text-sm font-semibold text-slate-700">Migraine today?</span>

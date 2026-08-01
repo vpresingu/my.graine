@@ -167,7 +167,7 @@ export default function App() {
               </div>
             )
           ) : screen === "Daily Log" ? (
-            <DailyLog onSaved={handleSaved} lastRecord={records[records.length - 1]} />
+            <DailyLog onSaved={handleSaved} records={records} />
           ) : screen === "Trigger Insights" ? (
             <TriggerInsights records={records} />
           ) : screen === "Progress" ? (

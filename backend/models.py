@@ -1,12 +1,44 @@
 """Database models for My-Graine."""
 
+import re
 from typing import Literal, Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 from sqlalchemy import JSON, Column
 from sqlmodel import Field, SQLModel
 
-ALLOWED_SYMPTOMS = {"nausea", "photophobia", "phonophobia", "dizziness", "neck_pain"}
+# Clinically grounded base vocabulary (ICHD-3 criteria + phase model),
+# grouped for the UI. Users extend it with their own labels (UserSymptom).
+SYMPTOM_GROUPS = {
+    "prodrome": ["yawning", "brain_fog", "fatigue", "food_cravings", "irritability"],
+    "aura": ["visual_aura", "sensory_aura", "speech_difficulty"],
+    "attack": [
+        "nausea",
+        "vomiting",
+        "photophobia",
+        "phonophobia",
+        "dizziness",
+        "neck_pain",
+        "throbbing_pain",
+        "one_sided_pain",
+        "worse_with_movement",
+        "osmophobia",
+        "allodynia",
+    ],
+}
+BASE_SYMPTOMS = {s for group in SYMPTOM_GROUPS.values() for s in group}
+
+
+def normalize_symptom(name: str) -> str:
+    """Canonical snake_case form so 'Brain fog', 'brain-fog' and 'brain_fog'
+    are the same symptom."""
+    return re.sub(r"[^a-z0-9]+", "_", (name or "").strip().lower()).strip("_")
+
+
+class UserSymptom(SQLModel, table=True):
+    """A symptom label this user added to their personal vocabulary."""
+
+    name: str = Field(primary_key=True)
 
 
 class DayRecord(SQLModel, table=True):
@@ -45,15 +77,10 @@ class ExtractionResult(BaseModel):
     suspected_triggers_mentioned: list[str] = []
     functional_impact_0to3: int
     risk_flags: list[str] = []
-
-    @field_validator("symptoms", mode="before")
-    @classmethod
-    def keep_known_symptoms(cls, v):
-        # The model occasionally invents symptom labels; drop them instead of
-        # failing the whole extraction.
-        if isinstance(v, list):
-            return [s for s in v if s in ALLOWED_SYMPTOMS]
-        return v
+    # Labels the model found in the note that aren't in the user's vocabulary
+    # yet — offered in the UI as "add to your symptoms?" (filled in by the
+    # endpoint, not the model).
+    suggested_new_symptoms: list[str] = []
 
 
 class TriggerFinding(BaseModel):
