@@ -61,6 +61,11 @@ class DayRecord(SQLModel, table=True):
     meds_preventive: Optional[str] = None
     functional_impact_0to3: int
     notes: str = ""
+    # Objective signals imported from a wearable (Apple Health export etc.).
+    # Null on days the import didn't cover; never required for manual logging.
+    hrv_ms: Optional[float] = None  # daily mean HRV (SDNN)
+    resting_hr: Optional[float] = None  # daily resting heart rate, bpm
+    steps: Optional[int] = None  # daily step count
 
 
 class ExtractionResult(BaseModel):
@@ -74,6 +79,11 @@ class ExtractionResult(BaseModel):
     aura: int
     symptoms: list[str] = []
     sleep_hours_prev_night: Optional[float] = None
+    # Null means "the note didn't say" — the voice-first log uses these nulls
+    # to ask targeted follow-up questions instead of showing the whole form.
+    stress_1to10: Optional[int] = None
+    meds_acute: Optional[str] = None
+    meds_preventive: Optional[str] = None
     suspected_triggers_mentioned: list[str] = []
     functional_impact_0to3: int
     risk_flags: list[str] = []

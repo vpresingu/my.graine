@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ValidationError
@@ -22,7 +22,9 @@ from sqlmodel import Session, func, select
 
 import analysis
 import gemma
+import health_import
 import seed as seed_module
+import transcribe as transcribe_module
 from db import get_session, init_db
 from models import (
     BASE_SYMPTOMS,
@@ -106,7 +108,29 @@ def create_record(
     session.add(record)
     session.commit()
     session.refresh(record)
+    # Note: the timeline fingerprint in _cached_model_call is what actually
+    # guarantees freshness; these clear() calls on mutation endpoints just
+    # free memory for results that can no longer be served.
+    _MODEL_CACHE.clear()
     return record
+
+
+@app.put("/api/records/{day}")
+def update_record(
+    day: int, record: DayRecord, session: Session = Depends(get_session)
+) -> DayRecord:
+    """Edit an existing day. Only fields present in the payload change, so
+    imported wearable data survives a diary edit that doesn't mention it."""
+    existing = session.get(DayRecord, day)
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"No record for day {day}")
+    for key, value in record.model_dump(exclude_unset=True, exclude={"day"}).items():
+        setattr(existing, key, value)
+    session.add(existing)
+    session.commit()
+    session.refresh(existing)
+    _MODEL_CACHE.clear()  # timeline changed; model results are stale
+    return existing
 
 
 @app.delete("/api/records/{day}")
@@ -222,6 +246,13 @@ def _cached_model_call(key: str, timeline: list[dict], refresh: bool, compute):
         return result
 
 
+# Wearable columns are omitted from timeline dicts when null (nothing
+# imported for that day) — otherwise every model call carries ~45 tokens/day
+# of '"hrv_ms":null' noise. Diary fields always stay present because
+# analysis/prompt code indexes them directly.
+_OPTIONAL_TIMELINE_KEYS = ("hrv_ms", "resting_hr", "steps")
+
+
 def _load_timeline(session: Session) -> list[dict]:
     """Full record set as plain dicts, ordered by day — sent to the model
     whole, never summarized or chunked."""
@@ -231,7 +262,14 @@ def _load_timeline(session: Session) -> list[dict]:
             status_code=400,
             detail="No records in the database. Add data first (python seed.py).",
         )
-    return [r.model_dump() for r in records]
+    timeline = []
+    for r in records:
+        row = r.model_dump()
+        for key in _OPTIONAL_TIMELINE_KEYS:
+            if row.get(key) is None:
+                row.pop(key, None)
+        timeline.append(row)
+    return timeline
 
 
 class SymptomRequest(BaseModel):
@@ -273,6 +311,55 @@ def delete_symptom(name: str, session: Session = Depends(get_session)) -> dict:
     return {"deleted": record.name, "custom": _custom_symptoms(session)}
 
 
+# Sleep words a note must contain for a sleep value to be trusted — without
+# one, a reported number (the model favors 0) is an artifact, not a datum.
+# Word-bounded ("nap" must not match "naproxen") but generous: nulling real
+# data ("only got 4 hours") is worse than letting a rare hallucination through.
+_SLEEP_MENTION_RE = re.compile(
+    r"\b(sleep\w*|slept|insomnia|nap(s|ped|ping)?|awake|wake|woke(n)?|bed|"
+    r"night(s)?|snooze(d)?|rest(ed|ing)?|all.?nighter|hours?)\b",
+    re.IGNORECASE,
+)
+
+
+def _clamped(value, lo, hi):
+    """None-preserving range check: out-of-range model output becomes 'not
+    stated' rather than a bogus datum (which would also suppress the UI's
+    follow-up question for that field)."""
+    return value if value is not None and lo <= value <= hi else None
+
+
+def _sanitize_extraction(
+    result: ExtractionResult, free_text: str, partial: Optional[dict] = None
+) -> ExtractionResult:
+    """Deterministic guardrails on model output: never trust the model where
+    Python can check."""
+    # A sleep value the user typed into the form (sent as partial_structured)
+    # is theirs — only model-derived values need the mention check.
+    user_gave_sleep = bool(partial and partial.get("sleep_hours_prev_night") is not None)
+    if not user_gave_sleep and not _SLEEP_MENTION_RE.search(free_text):
+        result.sleep_hours_prev_night = None
+    result.sleep_hours_prev_night = _clamped(result.sleep_hours_prev_night, 0, 24)
+    result.stress_1to10 = _clamped(result.stress_1to10, 1, 10)
+    result.wellbeing_1to10 = _clamped(result.wellbeing_1to10, 1, 10)
+    result.severity_0to10 = min(max(result.severity_0to10, 0), 10)
+    result.functional_impact_0to3 = min(max(result.functional_impact_0to3, 0), 3)
+    for field in ("meds_acute", "meds_preventive"):
+        value = getattr(result, field)
+        if value is not None and not value.strip():
+            setattr(result, field, None)
+    # Risk flags are fully deterministic, so recompute them outright — this
+    # both drops model-invented flags (diagnosis-adjacent, never shown) and
+    # keeps the flag consistent with the sleep value in one place.
+    result.risk_flags = (
+        [SHORT_SLEEP_FLAG]
+        if result.sleep_hours_prev_night is not None
+        and result.sleep_hours_prev_night < 5.5
+        else []
+    )
+    return result
+
+
 @app.post("/api/extract")
 def extract(
     req: ExtractRequest, session: Session = Depends(get_session)
@@ -288,7 +375,9 @@ def extract(
             ),
         },
     ]
-    result = _gemma_json(messages, ExtractionResult)
+    result = _sanitize_extraction(
+        _gemma_json(messages, ExtractionResult), req.free_text, req.partial_structured
+    )
 
     # Split the model's labels: known ones stay; clearly-described new ones
     # become suggestions the user can adopt into their vocabulary.
@@ -300,15 +389,96 @@ def extract(
         (known if name in allowed else suggested).append(name)
     result.symptoms = list(dict.fromkeys(known))
     result.suggested_new_symptoms = list(dict.fromkeys(suggested))
-
-    # Deterministic backstop for the short-sleep rule, independent of the model.
-    if (
-        result.sleep_hours_prev_night is not None
-        and result.sleep_hours_prev_night < 5.5
-        and SHORT_SLEEP_FLAG not in result.risk_flags
-    ):
-        result.risk_flags.append(SHORT_SLEEP_FLAG)
     return result
+
+
+@app.post("/api/transcribe")
+def transcribe_audio(file: UploadFile) -> dict:
+    """Voice journaling: mic audio in, transcript out — Whisper running
+    locally on CPU. The audio is processed in memory and discarded.
+
+    Deliberately sync (`def`): FastAPI runs it in the threadpool, so the
+    CPU-bound transcription doesn't freeze every other request."""
+    try:
+        text = transcribe_module.transcribe(file.file.read())
+    except transcribe_module.TranscribeError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    if not text:
+        raise HTTPException(
+            status_code=422,
+            detail="Couldn't hear anything in that recording — try again "
+            "closer to the microphone.",
+        )
+    return {"text": text}
+
+
+@app.post("/api/import/health")
+def import_health(
+    file: UploadFile, session: Session = Depends(get_session)
+) -> dict:
+    """Merge an Apple Health export (zip or xml) into the diary by date.
+
+    The file is parsed in memory on this device and discarded — nothing is
+    stored except the per-day numbers merged into existing DayRecords.
+    Objective watch sleep overwrites the manually recalled value.
+
+    Sync (`def`) on purpose: parsing a real multi-hundred-MB export takes a
+    while, and the threadpool keeps the rest of the app responsive meanwhile.
+    """
+    try:
+        # UploadFile.file is a seekable spooled temp file — passed through
+        # so the export is never buffered in memory.
+        days = health_import.parse_health_export(file.file)
+    except health_import.HealthImportError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    # export signal name -> DayRecord column. One place to extend when the
+    # parser learns a new signal.
+    signal_columns = {
+        "sleep_hours": "sleep_hours_prev_night",
+        "hrv_ms": "hrv_ms",
+        "resting_hr": "resting_hr",
+        "steps": "steps",
+    }
+
+    records = session.exec(select(DayRecord)).all()
+    matched = sleep_updated = 0
+    for record in records:
+        signals = days.get(record.date)
+        if not signals:
+            continue
+        matched += 1
+        if (
+            "sleep_hours" in signals
+            and record.sleep_hours_prev_night != signals["sleep_hours"]
+        ):
+            sleep_updated += 1
+        for signal, column in signal_columns.items():
+            if signal in signals:
+                setattr(record, column, signals[signal])
+        session.add(record)
+    session.commit()
+    _MODEL_CACHE.clear()  # timeline changed; model results are stale
+
+    return {
+        "days_in_export": len(days),
+        "days_matched": matched,
+        "days_unmatched": len(days) - matched,
+        "sleep_values_updated": sleep_updated,
+        "signals": {
+            "sleep": sum(1 for d in days.values() if "sleep_hours" in d),
+            "hrv": sum(1 for d in days.values() if "hrv_ms" in d),
+            "resting_hr": sum(1 for d in days.values() if "resting_hr" in d),
+            "steps": sum(1 for d in days.values() if "steps" in d),
+        },
+    }
+
+
+@app.get("/api/wearables/summary")
+def wearables_summary(session: Session = Depends(get_session)) -> dict:
+    """Deterministic Body Signals stats (baselines, HRV-dip-before-migraine
+    counts) — like /api/triggers/evidence, verifiable without the model."""
+    return analysis.wearable_summary(_load_timeline(session))
 
 
 @app.get("/api/triggers/evidence")

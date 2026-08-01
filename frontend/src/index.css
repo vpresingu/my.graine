@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Bundled locally (node_modules -> dist) — no network font loads, ever. */
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/public-sans";
 
 /* Print only the clinician one-pager (Patient History → Export to PDF). */
 @media print {
@@ -36,13 +39,21 @@
   animation: rise 0.35s ease-out;
 }
 
+/* Accent color: Tailwind's built-in sky scale (light-to-medium blues). */
 @theme {
-  --color-coral-50: #fff5f3;
-  --color-coral-100: #ffe3df;
-  --color-coral-200: #ffc9c2;
-  --color-coral-300: #ffa396;
-  --color-coral-400: #fb7a68;
-  --color-coral-500: #f2543f;
-  --color-coral-600: #dd3a25;
-  --color-coral-700: #b92e1c;
+  /* Warm paper surface + ink, replacing the generic gray-on-white. */
+  --color-bone-50: #faf8f4;
+  --color-bone-100: #f5f2ec;
+  --color-bone-200: #eae5db;
+  --color-bone-300: #d8d1c2;
+
+  --font-sans: "Public Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque Variable", "Public Sans Variable", sans-serif;
+}
+
+/* Headings carry the display face app-wide — no per-component edits needed. */
+@layer base {
+  h1, h2, h3 {
+    font-family: var(--font-display);
+  }
 }

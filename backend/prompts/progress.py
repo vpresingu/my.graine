@@ -6,6 +6,8 @@ SYSTEM_PROMPT = """Compare a migraine diary across a change point (e.g. a preven
 start). Report migraine-day frequency before vs after, severity trend, and
 disabled-day change. A "responder" is a >=50% reduction in migraine days.
 Do not recommend treatment; frame continuation as "discuss with your clinician."
+Some days may carry watch-measured fields (hrv_ms, resting_hr, steps); treat
+them as descriptive context only, never as clinical evidence.
 Output ONLY valid JSON:
 { "change_point_day": int, "migraine_days_before": int,
   "migraine_days_after": int, "pct_change": number,

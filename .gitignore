@@ -26,3 +26,6 @@ Thumbs.db
 # Env files (local-only app, but never commit secrets anyway)
 .env
 .env.*
+
+# Generated demo artifact (rebuild with: make health-demo)
+backend/data/demo_health_export.zip

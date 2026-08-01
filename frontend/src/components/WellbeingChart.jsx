@@ -11,7 +11,7 @@ import {
 // Renders a dot only on migraine days.
 function MigraineDot({ cx, cy, payload }) {
   if (!payload.migraine) return null;
-  return <circle cx={cx} cy={cy} r={3.5} fill="#f2543f" stroke="#fff" strokeWidth={1} />;
+  return <circle cx={cx} cy={cy} r={3.5} fill="#0ea5e9" stroke="#fff" strokeWidth={1} />;
 }
 
 export default function WellbeingChart({ records }) {

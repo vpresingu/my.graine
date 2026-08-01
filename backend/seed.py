@@ -33,7 +33,16 @@ def seed() -> int:
 
     with Session(engine) as session:
         for row in rows:
-            session.merge(DayRecord(**row))
+            # Update diary fields in place rather than replacing the row —
+            # a whole-row merge would silently null the imported wearable
+            # columns (hrv_ms/resting_hr/steps), which the seed file lacks.
+            existing = session.get(DayRecord, row["day"])
+            if existing is None:
+                session.add(DayRecord(**row))
+            else:
+                for key, value in row.items():
+                    setattr(existing, key, value)
+                session.add(existing)
         session.commit()
 
     print(f"Seeded {len(rows)} rows from {SEED_FILE.name} into {engine.url.database}")

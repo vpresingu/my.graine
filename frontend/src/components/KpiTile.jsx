@@ -33,7 +33,7 @@ export function Delta({ value, unit = "", windowLabel = "prior 28" }) {
   const worse = value > 0;
   return (
     <span
-      className={`text-xs font-semibold ${worse ? "text-coral-600" : "text-emerald-600"}`}
+      className={`text-xs font-semibold ${worse ? "text-sky-600" : "text-emerald-600"}`}
     >
       {worse ? "▲" : "▼"} {Math.abs(value)}
       {unit} vs {windowLabel}

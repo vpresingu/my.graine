@@ -20,14 +20,24 @@ diagnose. Output ONLY valid JSON matching this schema:
   "aura": 0 or 1,
   "symptoms": [ any of: __SYMPTOM_LIST__ ],
   "sleep_hours_prev_night": float or null,
+  "stress_1to10": int or null,
+  "meds_acute": string or null,
+  "meds_preventive": string or null,
   "suspected_triggers_mentioned": [string],
   "functional_impact_0to3": int,
   "risk_flags": [string]
 }
 Rules:
+- sleep_hours_prev_night, stress_1to10, meds_acute and meds_preventive are
+  null unless the note actually mentions them. Never guess a default.
+- meds_acute is medication taken for an attack (e.g. "sumatriptan 50mg", even
+  if the name is garbled by speech-to-text); meds_preventive is a daily
+  preventive. Include the dose when stated.
 - If the note describes prodromal symptoms (yawning, neck stiffness, food
   cravings, fog, irritability) with NO headache yet, set phase="prodrome" and migraine=0.
-- If sleep is under ~5.5 hours, add "short_sleep_elevated_next_day_risk" to risk_flags.
+- If sleep is under ~5.5 hours, add "__SHORT_SLEEP_FLAG__" to risk_flags.
+- risk_flags may ONLY contain "__SHORT_SLEEP_FLAG__" or be empty. Never
+  invent other flags.
 - Prefer the listed symptom labels. If the note clearly describes a symptom
   none of them covers, you may add one new snake_case label for it.
 - Extract only what the note states or clearly implies. Do not invent values."""
@@ -35,7 +45,9 @@ Rules:
 
 def build_system_prompt(allowed_symptoms: list[str]) -> str:
     symptom_list = ",".join(f'"{s}"' for s in allowed_symptoms)
-    return _SYSTEM_TEMPLATE.replace("__SYMPTOM_LIST__", symptom_list)
+    return _SYSTEM_TEMPLATE.replace("__SYMPTOM_LIST__", symptom_list).replace(
+        "__SHORT_SLEEP_FLAG__", SHORT_SLEEP_FLAG
+    )
 
 RETRY_INSTRUCTION = (
     "Your previous reply was not valid JSON matching the schema. "

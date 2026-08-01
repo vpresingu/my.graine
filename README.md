@@ -5,7 +5,45 @@
 > Built for **Build with Gemma NYC: On-Device AI for Healthcare** · Track: **On-Device Private Health Tools** · Model: **Gemma 4 (local, via Ollama)**
  
 `On-device` · `Offline-first` · `Privacy by architecture` · `Decision support — not diagnosis` · `Synthetic data only`
- 
+
+---
+
+## Run the demo (about 5 minutes)
+
+**Prerequisites:** Python 3.11+, Node.js 18+, and [Ollama](https://ollama.com) installed.
+
+```bash
+# 1. One-time: pull the local model (~3 GB) and start Ollama
+ollama pull gemma4
+
+# 2. Backend — first terminal
+cd backend
+python -m venv .venv
+.venv\Scripts\activate            # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+python seed.py                    # loads the 90-day synthetic demo diary
+uvicorn main:app --port 8000
+
+# 3. Frontend — second terminal
+cd frontend
+npm install
+npm run dev
+```
+
+Then open **http://localhost:5173**.
+
+- **Make every screen instant** (recommended before a demo): with both servers
+  running, `python backend/warm.py` — this pre-computes the model analyses so
+  screens load immediately instead of on first visit.
+- **Optional — voice logging:** `python backend/transcribe.py` once to fetch the
+  local Whisper model (~145 MB).
+- **Optional — wearables:** on the **Body Signals** screen, drop in an Apple
+  Health `export.zip`, or generate a synthetic one with
+  `python backend/make_demo_health_export.py`.
+
+Everything runs on your machine — no cloud, no accounts, no runtime network
+calls. The only traffic is to `localhost`.
+
 ---
  
 ### Built with
@@ -60,12 +98,13 @@ That's why this belongs in the On-Device Private Health Tools track: the offline
  
 ---
  
-## What it does — seven screens
+## What it does — eight screens
  
 | Screen | What it shows |
 |---|---|
-| **Dashboard** | Year-in-review: a custom SVG calendar heatmap of severity, trailing-28-day migraine frequency with the treatment start marked, wellbeing trend, a MIDAS-style disability gauge, and animated KPI tiles. |
-| **Daily Log** | Log a day in plain language. Gemma extracts structured fields live and surfaces a **forward-looking risk flag** ("short night — elevated migraine risk in the next ~24h") learned from your history. |
+| **Dashboard** | Year-in-review: a custom SVG calendar heatmap of severity, migraine frequency over a scope you choose (28/60/90/custom days) with the treatment start marked, wellbeing trend, and animated KPI tiles. |
+| **Daily Log** | Log a day by **typing or speaking** — a local Whisper model transcribes voice on-device, and Gemma extracts structured fields, asking follow-up questions only for what you left out. Surfaces a **forward-looking risk flag** ("short night — elevated migraine risk in the next ~24h") learned from your history. |
+| **Body Signals** | Drop in an **Apple Health export** (parsed entirely in memory on-device) to join watch-measured sleep, HRV, and resting heart rate to your diary — revealing how many attacks your watch "saw coming" via an HRV dip the day before. |
 | **Trigger Insights** | Ranked triggers with confidence and evidence — and the signature moment: a pattern that *looks* statistically strong gets **correctly rejected as a coincidence** because it's explained by a confounder. |
 | **Progress** | Before/after treatment-response analysis at the medication change point, with a "responder" verdict (≥50% fewer migraine days) and an interactive change-point selector. |
 | **Phenotype** | Organizes the history against recognized ICHD-3 migraine patterns for a clinician discussion — with a persistent, prominent "**does not diagnose**" disclaimer. |
@@ -207,14 +246,15 @@ My-Graine/
 │   ├── main.py            # FastAPI app, serves frontend + all /api endpoints
 │   ├── gemma.py           # local Ollama client — the ONLY model access, localhost only
 │   ├── analysis.py        # deterministic evidence computation (Python does the stats)
+│   ├── health_import.py   # Apple Health export parser (in-memory, on-device)
+│   ├── transcribe.py      # local Whisper voice-to-text for the Daily Log
 │   ├── models.py          # SQLModel record + Pydantic validation for every Gemma output
 │   ├── prompts/           # the five Gemma jobs, each in its own file
 │   ├── seed.py            # loads the synthetic dataset
 │   └── data/              # synthetic patient record (fictional)
 └── frontend/
     └── src/
-        ├── screens/       # Dashboard, DailyLog, Triggers, Progress, Phenotype, History, Records
-        └── components/    # CalendarHeatmap, LagScatter, ConfidenceBar, DisabilityGauge, ...
+        └── components/    # Dashboard, DailyLog, BodySignals, TriggerInsights, CalendarHeatmap, ...
 ```
  
 ---

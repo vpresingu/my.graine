@@ -8,7 +8,7 @@ const LEFT = 38; // month label gutter
 const TOP = 16; // weekday label row
 const NO_MIGRAINE = "#e2e8f0";
 // Deepening coral by severity bucket (1-2, 3-4, 5-6, 7-8, 9-10).
-const SEVERITY_COLORS = ["#ffc9c2", "#ffa396", "#fb7a68", "#f2543f", "#b92e1c"];
+const SEVERITY_COLORS = ["#bae6fd", "#7dd3fc", "#38bdf8", "#0ea5e9", "#0369a1"];
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

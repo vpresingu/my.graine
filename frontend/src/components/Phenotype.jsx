@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { fetchAnalysis } from "../lib/analysisStore";
+import { analysisStartedAt, fetchAnalysis } from "../lib/analysisStore";
 import ModelLoading from "./ModelLoading";
 
 export default function Phenotype() {
@@ -27,11 +27,11 @@ export default function Phenotype() {
   return (
     <div className="space-y-5">
       {/* Scope-safety strip — deliberately prominent and always visible. */}
-      <div className="sticky top-0 z-10 flex items-center gap-3 rounded-xl border-l-4 border-coral-500 bg-slate-800 px-5 py-3.5 text-white shadow-md">
+      <div className="sticky top-0 z-10 flex items-center gap-3 rounded-xl border-l-4 border-sky-500 bg-slate-800 px-5 py-3.5 text-white shadow-md">
         <span className="text-xl">⚕</span>
         <p className="text-sm font-semibold leading-snug">
           My-Graine organizes your history against known patterns.{" "}
-          <span className="text-coral-300">It does not diagnose.</span>
+          <span className="text-sky-300">It does not diagnose.</span>
         </p>
       </div>
 
@@ -43,11 +43,14 @@ export default function Phenotype() {
       </h2>
 
       {state.status === "loading" && (
-        <ModelLoading message="organizing your history on-device…" />
+        <ModelLoading
+          message="organizing your history on-device…"
+          since={analysisStartedAt("phenotype")}
+        />
       )}
 
       {state.status === "error" && (
-        <div className="rounded-2xl border border-coral-200 bg-coral-50 p-5 text-sm text-coral-700">
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5 text-sm text-sky-700">
           {state.message}
         </div>
       )}
@@ -64,7 +67,7 @@ export default function Phenotype() {
                 <div className="flex w-44 shrink-0 items-center gap-2">
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
                     <div
-                      className="h-full rounded-full bg-coral-500 transition-all duration-700"
+                      className="h-full rounded-full bg-sky-500 transition-all duration-700"
                       style={{ width: `${Math.round(p.match_strength_0to1 * 100)}%` }}
                     />
                   </div>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { fetchAnalysis } from "../lib/analysisStore";
+import { analysisStartedAt, fetchAnalysis } from "../lib/analysisStore";
 import ModelLoading from "./ModelLoading";
 
 // Local before/after stats so the bars update instantly while dragging the
@@ -36,7 +36,7 @@ function PctChip({ pct }) {
   return (
     <span
       className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${
-        better ? "bg-emerald-50 text-emerald-700" : "bg-coral-50 text-coral-700"
+        better ? "bg-emerald-50 text-emerald-700" : "bg-sky-50 text-sky-700"
       }`}
     >
       {pct > 0 ? "+" : ""}
@@ -58,7 +58,7 @@ function PairedBar({ label, before, after, beforeDays, afterDays, unit, pct, dec
       </div>
       {[
         { v: before, n: nb, cls: "bg-slate-300", tag: `before (${beforeDays}d)` },
-        { v: after, n: na, cls: "bg-coral-500", tag: `after (${afterDays}d)` },
+        { v: after, n: na, cls: "bg-sky-500", tag: `after (${afterDays}d)` },
       ].map(({ v, n, cls, tag }) => (
         <div key={tag} className="mb-1 flex items-center gap-2">
           <span className="w-24 shrink-0 text-right text-xs text-slate-400">{tag}</span>
@@ -150,13 +150,16 @@ export default function Progress({ records }) {
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-coral-200 bg-coral-50 p-5 text-sm text-coral-700">
+        <div className="rounded-2xl border border-sky-200 bg-sky-50 p-5 text-sm text-sky-700">
           {error}
         </div>
       )}
 
       {!result && !error && (
-        <ModelLoading message="comparing before and after on-device…" />
+        <ModelLoading
+          message="comparing before and after on-device…"
+          since={analysisStartedAt(`progress:${cp ?? "default"}`)}
+        />
       )}
 
       {result && stats && (
@@ -171,7 +174,7 @@ export default function Progress({ records }) {
                 </span>
               </h3>
               {analyzing && (
-                <span className="animate-pulse text-xs font-medium text-coral-600">
+                <span className="animate-pulse text-xs font-medium text-sky-600">
                   re-analyzing on-device…
                 </span>
               )}
@@ -181,7 +184,7 @@ export default function Progress({ records }) {
               {records
                 .filter((r) => r.migraine)
                 .map((r) => (
-                  <rect key={r.day} x={r.day - firstDay} y={2} width={1} height={10} fill="#f2543f" opacity={0.7} />
+                  <rect key={r.day} x={r.day - firstDay} y={2} width={1} height={10} fill="#0ea5e9" opacity={0.7} />
                 ))}
               <rect x={cp - firstDay} y={0} width={0.6} height={14} fill="#0f172a" />
             </svg>
@@ -191,7 +194,7 @@ export default function Progress({ records }) {
               max={lastDay}
               value={cp}
               onChange={(e) => setCp(Number(e.target.value))}
-              className="w-full accent-coral-500"
+              className="w-full accent-sky-500"
             />
             <div className="flex justify-between text-xs text-slate-400">
               <span>day {firstDay}</span>

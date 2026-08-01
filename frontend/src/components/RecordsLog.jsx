@@ -79,7 +79,7 @@ export default function RecordsLog({ records, lastSavedDay }) {
           <span className="text-slate-400">days logged</span>
         </span>
         <span>
-          <span className="font-bold text-coral-600">{migraineDays}</span>{" "}
+          <span className="font-bold text-sky-600">{migraineDays}</span>{" "}
           <span className="text-slate-400">migraine days</span>
         </span>
         <span>
@@ -98,7 +98,7 @@ export default function RecordsLog({ records, lastSavedDay }) {
           onClick={() => setMigraineOnly(!migraineOnly)}
           className={`rounded-full border px-3.5 py-1.5 font-medium transition-colors ${
             migraineOnly
-              ? "border-coral-500 bg-coral-500 text-white"
+              ? "border-sky-500 bg-sky-500 text-white"
               : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
           }`}
         >
@@ -108,7 +108,7 @@ export default function RecordsLog({ records, lastSavedDay }) {
           onClick={() => setWithNoteOnly(!withNoteOnly)}
           className={`rounded-full border px-3.5 py-1.5 font-medium transition-colors ${
             withNoteOnly
-              ? "border-coral-500 bg-coral-500 text-white"
+              ? "border-sky-500 bg-sky-500 text-white"
               : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
           }`}
         >
@@ -137,7 +137,7 @@ export default function RecordsLog({ records, lastSavedDay }) {
           placeholder="Search notes…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="min-w-48 flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 placeholder:text-slate-300 focus:border-coral-400 focus:outline-none"
+          className="min-w-48 flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-slate-700 placeholder:text-slate-300 focus:border-sky-400 focus:outline-none"
         />
       </div>
 
@@ -154,7 +154,7 @@ export default function RecordsLog({ records, lastSavedDay }) {
                 >
                   {c.label}
                   {sort.key === c.key && (
-                    <span className="ml-0.5 text-coral-500">
+                    <span className="ml-0.5 text-sky-500">
                       {sort.dir === "asc" ? "▲" : "▼"}
                     </span>
                   )}
@@ -175,7 +175,7 @@ export default function RecordsLog({ records, lastSavedDay }) {
                   onClick={() => hasNotes && setExpanded(isOpen ? null : r.day)}
                   className={`border-t border-slate-100 transition-colors ${
                     isNew
-                      ? "bg-coral-50"
+                      ? "bg-sky-50"
                       : i % 2
                         ? "bg-slate-50/60"
                         : "bg-white"
@@ -184,7 +184,7 @@ export default function RecordsLog({ records, lastSavedDay }) {
                   <td className="px-3 py-2 font-semibold tabular-nums text-slate-700">
                     {r.day}
                     {isNew && (
-                      <span className="ml-1.5 rounded-full bg-coral-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      <span className="ml-1.5 rounded-full bg-sky-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
                         NEW
                       </span>
                     )}
@@ -194,7 +194,7 @@ export default function RecordsLog({ records, lastSavedDay }) {
                   <td className="px-3 py-2">
                     <span
                       className={`inline-block h-2.5 w-2.5 rounded-full ${
-                        r.migraine ? "bg-coral-500" : "bg-slate-200"
+                        r.migraine ? "bg-sky-500" : "bg-slate-200"
                       }`}
                     />
                   </td>
@@ -238,7 +238,7 @@ export default function RecordsLog({ records, lastSavedDay }) {
                   </td>
                 </tr>,
                 isOpen && (
-                  <tr key={`${r.day}-notes`} className="border-t border-slate-100 bg-coral-50/40">
+                  <tr key={`${r.day}-notes`} className="border-t border-slate-100 bg-sky-50/40">
                     <td colSpan={COLUMNS.length} className="px-6 py-3">
                       <p className="text-sm italic leading-relaxed text-slate-600">
                         “{r.notes}”

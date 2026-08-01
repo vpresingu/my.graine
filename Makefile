@@ -16,3 +16,7 @@ build:
 # Pre-compute all model analyses so every screen loads instantly (run before demos)
 warm:
 	cd backend && python warm.py
+
+# Build the synthetic Apple Health export used to rehearse the watch-import demo
+health-demo:
+	cd backend && python make_demo_health_export.py

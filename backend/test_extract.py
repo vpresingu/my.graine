@@ -104,6 +104,65 @@ def test_extract_503_when_ollama_down(monkeypatch):
     assert "Ollama" in resp.json()["detail"]
 
 
+def test_invented_risk_flags_are_dropped(monkeypatch):
+    invented = json.loads(MOCK_PRODROME)
+    invented["risk_flags"] = ["mental_health_crisis_flag", SHORT_SLEEP_FLAG]
+    monkeypatch.setattr(gemma, "chat", _mock_chat([json.dumps(invented)]))
+    with TestClient(main.app) as client:
+        resp = client.post("/api/extract", json={"free_text": PRODROME_NOTE})
+    assert resp.json()["risk_flags"] == [SHORT_SLEEP_FLAG]
+
+
+def test_sleep_without_mention_is_nulled(monkeypatch):
+    # The model guessed 0h even though the note says nothing about sleep —
+    # must come back null (which also suppresses the short-sleep flag).
+    guessed = json.loads(MOCK_PRODROME)
+    guessed["sleep_hours_prev_night"] = 0.0
+    guessed["risk_flags"] = [SHORT_SLEEP_FLAG]
+    monkeypatch.setattr(gemma, "chat", _mock_chat([json.dumps(guessed)]))
+    with TestClient(main.app) as client:
+        resp = client.post(
+            "/api/extract", json={"free_text": "Headache all afternoon, pretty rough."}
+        )
+    data = resp.json()
+    assert data["sleep_hours_prev_night"] is None
+    assert data["risk_flags"] == []
+
+
+def test_stated_zero_sleep_is_kept(monkeypatch):
+    zero = json.loads(MOCK_PRODROME)
+    zero["sleep_hours_prev_night"] = 0.0
+    zero["risk_flags"] = []
+    monkeypatch.setattr(gemma, "chat", _mock_chat([json.dumps(zero)]))
+    with TestClient(main.app) as client:
+        resp = client.post(
+            "/api/extract", json={"free_text": "I didn't sleep at all last night."}
+        )
+    data = resp.json()
+    assert data["sleep_hours_prev_night"] == 0.0
+    assert SHORT_SLEEP_FLAG in data["risk_flags"]  # deterministic backstop
+
+
+def test_out_of_range_values_are_sanitized(monkeypatch):
+    wild = json.loads(MOCK_PRODROME)
+    wild.update(
+        stress_1to10=0,  # below the 1-10 scale -> not stated
+        wellbeing_1to10=15,
+        severity_0to10=12,
+        functional_impact_0to3=7,
+        meds_acute="  ",
+    )
+    monkeypatch.setattr(gemma, "chat", _mock_chat([json.dumps(wild)]))
+    with TestClient(main.app) as client:
+        resp = client.post("/api/extract", json={"free_text": PRODROME_NOTE})
+    data = resp.json()
+    assert data["stress_1to10"] is None
+    assert data["wellbeing_1to10"] is None
+    assert data["severity_0to10"] == 10
+    assert data["functional_impact_0to3"] == 3
+    assert data["meds_acute"] is None
+
+
 @pytest.mark.skipif(
     not os.environ.get("MYGRAINE_LIVE_MODEL"),
     reason="Set MYGRAINE_LIVE_MODEL=1 (with Ollama running) to test the real model",

@@ -1,6 +1,13 @@
 // Pure derivations over the record set. Records are DayRecord objects from
 // /api/records, already ordered by day.
 
+// Shared evidence-row formatting, so Trigger Insights and Body Signals can
+// never disagree about the same underlying rate.
+export const pct = (rate) => `${Math.round(rate * 100)}%`;
+
+export const rateLift = (rateExposed, rateBaseline) =>
+  rateExposed / Math.max(rateBaseline, 0.001);
+
 export function scopeRecords(records, scope) {
   if (scope === "all") return records;
   return records.slice(-Number(scope));
@@ -46,32 +53,12 @@ export function firstPreventiveDay(records) {
   return r ? r.day : null;
 }
 
-// MIDAS-style disability score: sum of functional impact over (up to) the
-// last 90 recorded days — MIDAS is defined over a 3-month window.
-export function midasScore(records) {
-  const window = records.slice(-90);
-  const score = window.reduce((s, r) => s + r.functional_impact_0to3, 0);
-  return { score, maxPossible: window.length * 3, windowDays: window.length };
-}
-
-export function midasGrade(score) {
-  if (score <= 5) return { grade: "I", label: "Little or no disability" };
-  if (score <= 10) return { grade: "II", label: "Mild disability" };
-  if (score <= 20) return { grade: "III", label: "Moderate disability" };
-  return { grade: "IV", label: "Severe disability" };
-}
-
-// Average functional impact per day before vs after the preventive started.
-export function beforeAfterImpact(records) {
-  const cp = firstPreventiveDay(records);
-  if (cp === null) return null;
-  const before = records.filter((r) => r.day < cp);
-  const after = records.filter((r) => r.day >= cp);
-  if (!before.length || !after.length) return null;
-  const avg = (recs) =>
-    recs.reduce((s, r) => s + r.functional_impact_0to3, 0) / recs.length;
-  return { before: avg(before), after: avg(after), changePointDay: cp };
-}
+// A MIDAS-style score and its I-IV grading ("Moderate disability", "Severe
+// disability") used to live here. Assigning the user a disability grade is a
+// clinical judgement about them, not an organization of what they recorded,
+// which is the line this app promises not to cross. Removed deliberately —
+// don't reintroduce it. Progress compares functional impact before and after a
+// change point without grading the person.
 
 const MONTHS = "short";
 

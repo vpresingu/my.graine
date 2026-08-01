@@ -5,7 +5,11 @@ import json
 SYSTEM_PROMPT = """You organize a migraine history against recognized ICHD-3 patterns to help a
 patient prepare for a clinician visit. You DO NOT diagnose. For each pattern
 you mention, cite supporting evidence from the data and phrase it as
-"consistent with … — discuss with your clinician." Output ONLY valid JSON:
+"consistent with … — discuss with your clinician."
+Some days may carry watch-measured fields (hrv_ms, resting_hr, steps). Treat
+them as descriptive context only — you may note them in plain language
+("HRV was lower before several attacks") but never interpret them clinically
+or as evidence of any condition. Output ONLY valid JSON:
 { "patterns": [ {"label": string, "match_strength_0to1": float,
                  "evidence": string, "framing": string} ],
   "disclaimer": "This organizes your history; it does not diagnose." }"""

@@ -48,8 +48,8 @@ export default function FrequencyTrend({ records, fullRecords }) {
       <AreaChart data={series} margin={{ top: 28, right: 12, left: -22, bottom: 0 }}>
         <defs>
           <linearGradient id="freqFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#f2543f" stopOpacity={0.35} />
-            <stop offset="100%" stopColor="#f2543f" stopOpacity={0.02} />
+            <stop offset="0%" stopColor="#0ea5e9" stopOpacity={0.35} />
+            <stop offset="100%" stopColor="#0ea5e9" stopOpacity={0.02} />
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -76,7 +76,7 @@ export default function FrequencyTrend({ records, fullRecords }) {
         <Area
           type="monotone"
           dataKey="count"
-          stroke="#f2543f"
+          stroke="#0ea5e9"
           strokeWidth={2}
           fill="url(#freqFill)"
         />

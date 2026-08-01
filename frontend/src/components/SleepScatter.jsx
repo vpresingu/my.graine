@@ -33,17 +33,27 @@ export default function SleepScatter({ records }) {
           y={M.top}
           width={x(THRESHOLD) - x(xMin)}
           height={H - M.top - M.bottom}
-          fill="#fff0ed"
+          fill="#f0f9ff"
         />
         <line
           x1={x(THRESHOLD)}
           y1={M.top}
           x2={x(THRESHOLD)}
           y2={H - M.bottom}
-          stroke="#fb7a68"
+          stroke="#38bdf8"
           strokeDasharray="4 4"
         />
-        <text x={x(THRESHOLD) - 6} y={M.top + 12} textAnchor="end" fontSize={11} fill="#dd3a25">
+        {/* white backing so scatter points can't collide with the caption */}
+        <rect
+          x={x(THRESHOLD) - 110}
+          y={M.top + 1}
+          width={104}
+          height={16}
+          rx={4}
+          fill="#ffffff"
+          opacity={0.92}
+        />
+        <text x={x(THRESHOLD) - 6} y={M.top + 12} textAnchor="end" fontSize={11} fill="#0284c7">
           short sleep &lt; 5.5h
         </text>
 
@@ -98,7 +108,7 @@ export default function SleepScatter({ records }) {
               cx={x(r.sleep_hours_prev_night) + jx(r.day)}
               cy={y(r.severity_0to10) + jy(r.day)}
               r={5}
-              fill="#f2543f"
+              fill="#0ea5e9"
               opacity={0.9}
               stroke="#fff"
               strokeWidth={1}
@@ -109,7 +119,7 @@ export default function SleepScatter({ records }) {
       </svg>
       <div className="mt-2 flex items-center gap-5 text-xs text-slate-500">
         <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded-full bg-coral-500" /> migraine day
+          <span className="h-3 w-3 rounded-full bg-sky-500" /> migraine day
         </span>
         <span className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-full bg-slate-300" /> no migraine
