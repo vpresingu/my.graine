@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
+import { fetchAnalysis } from "../lib/analysisStore";
+import ModelLoading from "./ModelLoading";
 
 // Local before/after stats so the bars update instantly while dragging the
 // change point; the model call (summary/responder) follows debounced.
@@ -86,16 +88,15 @@ export default function Progress({ records }) {
     setAnalyzing(true);
     setError(null);
     try {
-      const resp = await fetch("/api/progress", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(day !== null ? { change_point_day: day } : {}),
-      });
-      if (!resp.ok) {
-        const body = await resp.json().catch(() => ({}));
-        throw new Error(body.detail || `HTTP ${resp.status}`);
-      }
-      const data = await resp.json();
+      const data = await fetchAnalysis(
+        `progress:${day ?? "default"}`,
+        "/api/progress",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(day !== null ? { change_point_day: day } : {}),
+        }
+      );
       setResult(data);
       setCp(data.change_point_day);
     } catch (e) {
@@ -155,10 +156,7 @@ export default function Progress({ records }) {
       )}
 
       {!result && !error && (
-        <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white">
-          <span className="h-8 w-8 animate-spin rounded-full border-2 border-coral-200 border-t-coral-500" />
-          <p className="animate-pulse text-sm text-slate-400">reasoning locally…</p>
-        </div>
+        <ModelLoading message="comparing before and after on-device…" />
       )}
 
       {result && stats && (

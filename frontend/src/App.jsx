@@ -6,6 +6,7 @@ import Phenotype from "./components/Phenotype";
 import Progress from "./components/Progress";
 import RecordsLog from "./components/RecordsLog";
 import TriggerInsights from "./components/TriggerInsights";
+import { fetchAnalysis, invalidateAnalyses } from "./lib/analysisStore";
 import { formatDateRange } from "./lib/metrics";
 
 const SCREENS = [
@@ -37,21 +38,11 @@ export default function App() {
       .catch(() => setStats(null));
   }, []);
 
-  useEffect(() => {
-    fetch("/api/health")
-      .then((r) => r.json())
-      .then((d) => setHealth(d.status === "ok" ? "ok" : "down"))
-      .catch(() => setHealth("down"));
-    loadData();
-    // Model-backed; slow (local inference) — fetched once, shown when ready.
-    fetch("/api/progress", { method: "POST" })
-      .then(async (r) => {
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error(body.detail || `HTTP ${r.status}`);
-        }
-        return r.json();
-      })
+  // Model-backed; slow (local inference) — deduped and unmount-proof via the
+  // analysis store, shown when ready.
+  const loadProgress = useCallback(() => {
+    setProgress({ state: "loading" });
+    fetchAnalysis("progress:default", "/api/progress", { method: "POST" })
       .then((data) => setProgress({ state: "ok", data }))
       .catch((e) =>
         setProgress({
@@ -59,7 +50,23 @@ export default function App() {
           message: e.message.includes("Ollama") ? "model offline" : e.message,
         })
       );
-  }, [loadData]);
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/health")
+      .then((r) => r.json())
+      .then((d) => setHealth(d.status === "ok" ? "ok" : "down"))
+      .catch(() => setHealth("down"));
+    loadData();
+    loadProgress();
+  }, [loadData, loadProgress]);
+
+  // The timeline changed (day saved): stale analyses must not survive.
+  const handleSaved = useCallback(() => {
+    loadData();
+    invalidateAnalyses();
+    loadProgress();
+  }, [loadData, loadProgress]);
 
   // Rehearsal helper, not part of the demo: restore the original seed data.
   async function resetDemoData() {
@@ -71,11 +78,13 @@ export default function App() {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
       loadData();
+      invalidateAnalyses(); // server cache was cleared; drop client copies too
+      loadProgress();
       setResetState(`✓ ${d.rows} days restored`);
     } catch {
       setResetState("reset failed");
     }
-    setTimeout(() => setResetState(null), 3000);
+    setTimeout(() => setResetState(null), 4000);
   }
 
   return (
@@ -91,7 +100,13 @@ export default function App() {
           <button
             onClick={resetDemoData}
             title="Wipe and re-seed the original demo data (rehearsal only)"
-            className="text-xs text-slate-300 transition-colors hover:text-slate-500"
+            className={`rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+              resetState?.startsWith("✓")
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                : resetState === "reset failed"
+                  ? "border-coral-200 bg-coral-50 text-coral-700"
+                  : "border-slate-200 text-slate-400 hover:border-slate-300 hover:text-slate-600"
+            }`}
           >
             {resetState === "working" ? "resetting…" : (resetState ?? "Reset demo data")}
           </button>
@@ -147,7 +162,7 @@ export default function App() {
               </div>
             )
           ) : screen === "Daily Log" ? (
-            <DailyLog onSaved={loadData} />
+            <DailyLog onSaved={handleSaved} />
           ) : screen === "Trigger Insights" ? (
             <TriggerInsights records={records} />
           ) : screen === "Progress" ? (

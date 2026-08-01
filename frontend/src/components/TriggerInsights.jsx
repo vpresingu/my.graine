@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { fetchAnalysis } from "../lib/analysisStore";
+import ModelLoading from "./ModelLoading";
 import SleepScatter from "./SleepScatter";
 
 const VERDICTS = {
@@ -122,18 +124,10 @@ export default function TriggerInsights({ records }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/triggers/evidence")
-      .then((r) => r.json())
+    fetchAnalysis("evidence", "/api/triggers/evidence")
       .then((d) => !cancelled && setEvidence(d.evidence || []))
       .catch(() => {});
-    fetch("/api/triggers", { method: "POST" })
-      .then(async (r) => {
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error(body.detail || `HTTP ${r.status}`);
-        }
-        return r.json();
-      })
+    fetchAnalysis("triggers", "/api/triggers", { method: "POST" })
       .then((d) => !cancelled && setState({ status: "ok", triggers: d.triggers }))
       .catch(
         (e) =>
@@ -160,12 +154,7 @@ export default function TriggerInsights({ records }) {
       </h2>
 
       {state.status === "loading" && (
-        <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white">
-          <span className="h-8 w-8 animate-spin rounded-full border-2 border-coral-200 border-t-coral-500" />
-          <p className="animate-pulse text-sm text-slate-400">
-            reasoning locally over your diary…
-          </p>
-        </div>
+        <ModelLoading message="reasoning locally over your diary…" />
       )}
 
       {state.status === "error" && (
@@ -175,13 +164,15 @@ export default function TriggerInsights({ records }) {
       )}
 
       {state.status === "ok" && (
-        <>
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            {state.triggers.map((t) => (
-              <TriggerCard key={t.trigger} t={t} evidence={evidence} />
-            ))}
-          </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {state.triggers.map((t) => (
+            <TriggerCard key={t.trigger} t={t} evidence={evidence} />
+          ))}
+        </div>
+      )}
 
+      {/* Deterministic sections — rendered immediately, no model needed. */}
+      <>
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="mb-1 text-sm font-semibold text-slate-700">
               Sleep → next-day severity
@@ -232,8 +223,7 @@ export default function TriggerInsights({ records }) {
               </div>
             )}
           </section>
-        </>
-      )}
+      </>
     </div>
   );
 }

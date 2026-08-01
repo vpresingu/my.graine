@@ -8,6 +8,7 @@ anything beyond this device.
 import hashlib
 import json
 import re
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
@@ -196,18 +197,25 @@ def _gemma_json(messages: list[dict], model_cls, num_ctx=None, timeout=gemma.DEF
 # invalidated automatically when the records change, via a fingerprint of the
 # full timeline. Memory only: no disk, no network. Force with ?refresh=1.
 _MODEL_CACHE: dict[str, tuple[str, object]] = {}
+# Per-key locks: concurrent identical requests (e.g. React StrictMode firing
+# effects twice in dev) share one model run instead of both hitting Ollama.
+_CACHE_LOCKS: dict[str, threading.Lock] = {}
+_CACHE_LOCKS_GUARD = threading.Lock()
 
 
 def _cached_model_call(key: str, timeline: list[dict], refresh: bool, compute):
     fingerprint = hashlib.md5(
         json.dumps(timeline, sort_keys=True, default=str).encode()
     ).hexdigest()
-    cached = _MODEL_CACHE.get(key)
-    if not refresh and cached is not None and cached[0] == fingerprint:
-        return cached[1]
-    result = compute()  # HTTPExceptions propagate; errors are never cached
-    _MODEL_CACHE[key] = (fingerprint, result)
-    return result
+    with _CACHE_LOCKS_GUARD:
+        lock = _CACHE_LOCKS.setdefault(key, threading.Lock())
+    with lock:
+        cached = _MODEL_CACHE.get(key)
+        if not refresh and cached is not None and cached[0] == fingerprint:
+            return cached[1]
+        result = compute()  # HTTPExceptions propagate; errors are never cached
+        _MODEL_CACHE[key] = (fingerprint, result)
+        return result
 
 
 def _load_timeline(session: Session) -> list[dict]:

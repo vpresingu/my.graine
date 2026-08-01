@@ -25,16 +25,21 @@ function PreventiveLabel({ viewBox }) {
   );
 }
 
-export default function FrequencyTrend({ records }) {
-  const series = trailing28Series(records);
-  const preventiveDay = firstPreventiveDay(records);
+export default function FrequencyTrend({ records, fullRecords }) {
+  // Compute over the full diary (the trailing window needs a 28-day run-up),
+  // then clip the display to the scoped range — a 30d scope still shows a
+  // full-density line instead of 3 points.
+  const all = fullRecords ?? records;
+  const firstShown = records[0]?.day ?? 0;
+  const series = trailing28Series(all).filter((p) => p.day >= firstShown);
+  const preventiveDay = firstPreventiveDay(all);
   const showRef =
     preventiveDay !== null && series.some((p) => p.day >= preventiveDay);
 
   if (series.length < 2) {
     return (
       <p className="py-10 text-center text-sm text-slate-400">
-        Needs at least 28 recorded days in this window.
+        Needs at least 28 recorded days.
       </p>
     );
   }

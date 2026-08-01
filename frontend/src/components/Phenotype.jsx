@@ -1,18 +1,13 @@
 import { useEffect, useState } from "react";
+import { fetchAnalysis } from "../lib/analysisStore";
+import ModelLoading from "./ModelLoading";
 
 export default function Phenotype() {
   const [state, setState] = useState({ status: "loading" });
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/phenotype", { method: "POST" })
-      .then(async (r) => {
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error(body.detail || `HTTP ${r.status}`);
-        }
-        return r.json();
-      })
+    fetchAnalysis("phenotype", "/api/phenotype", { method: "POST" })
       .then((d) => !cancelled && setState({ status: "ok", data: d }))
       .catch(
         (e) =>
@@ -48,10 +43,7 @@ export default function Phenotype() {
       </h2>
 
       {state.status === "loading" && (
-        <div className="flex h-40 flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white">
-          <span className="h-8 w-8 animate-spin rounded-full border-2 border-coral-200 border-t-coral-500" />
-          <p className="animate-pulse text-sm text-slate-400">reasoning locally…</p>
-        </div>
+        <ModelLoading message="organizing your history on-device…" />
       )}
 
       {state.status === "error" && (

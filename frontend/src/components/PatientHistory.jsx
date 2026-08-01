@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { fetchAnalysis } from "../lib/analysisStore";
+import ModelLoading from "./ModelLoading";
 
 const HEADINGS = [
   "Onset & course",
@@ -42,14 +44,7 @@ export default function PatientHistory({ recordCount }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/history", { method: "POST" })
-      .then(async (r) => {
-        if (!r.ok) {
-          const body = await r.json().catch(() => ({}));
-          throw new Error(body.detail || `HTTP ${r.status}`);
-        }
-        return r.json();
-      })
+    fetchAnalysis("history", "/api/history", { method: "POST" })
       .then((d) => !cancelled && setState({ status: "ok", ...d }))
       .catch(
         (e) =>
@@ -111,12 +106,7 @@ export default function PatientHistory({ recordCount }) {
       </div>
 
       {state.status === "loading" && (
-        <div className="flex h-48 flex-col items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white">
-          <span className="h-8 w-8 animate-spin rounded-full border-2 border-coral-200 border-t-coral-500" />
-          <p className="animate-pulse text-sm text-slate-400">
-            assembling your history on-device…
-          </p>
-        </div>
+        <ModelLoading message="assembling your history on-device…" />
       )}
 
       {state.status === "error" && (

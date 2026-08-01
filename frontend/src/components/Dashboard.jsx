@@ -7,7 +7,7 @@ import { CountUpNumber, Delta, KpiTile } from "./KpiTile";
 import {
   avgSeverityOnAttackDays,
   formatDate,
-  last28Split,
+  migraineDayCount,
   scopeRecords,
 } from "../lib/metrics";
 
@@ -56,9 +56,18 @@ export default function Dashboard({ records, stats, progress }) {
   const [selectedDay, setSelectedDay] = useState(null);
 
   const scoped = useMemo(() => scopeRecords(records, scope), [records, scope]);
-  const split = useMemo(() => last28Split(scoped), [scoped]);
-  const severityNow = avgSeverityOnAttackDays(scoped.slice(-28));
-  const severityPrior = avgSeverityOnAttackDays(scoped.slice(-56, -28));
+  // KPI window follows the scope; delta compares the equally-sized window
+  // immediately before it (null when the diary isn't long enough).
+  const win = scoped.length;
+  const prior = useMemo(
+    () => records.slice(-2 * win, -win),
+    [records, win]
+  );
+  const currentCount = migraineDayCount(scoped);
+  const priorCount = prior.length === win ? migraineDayCount(prior) : null;
+  const severityNow = avgSeverityOnAttackDays(scoped);
+  const severityPrior =
+    prior.length === win ? avgSeverityOnAttackDays(prior) : null;
   const severityDelta =
     severityNow !== null && severityPrior !== null
       ? +(severityNow - severityPrior).toFixed(1)
@@ -92,8 +101,11 @@ export default function Dashboard({ records, stats, progress }) {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <KpiTile label="Migraine days · last 28 recorded" sub={<Delta value={split.prior !== null ? split.current - split.prior : null} />}>
-          <CountUpNumber value={split.current} />
+        <KpiTile
+          label={`Migraine days · last ${win} recorded`}
+          sub={<Delta value={priorCount !== null ? currentCount - priorCount : null} windowLabel={`prior ${win}`} />}
+        >
+          <CountUpNumber value={currentCount} />
         </KpiTile>
         <KpiTile
           label="Avg severity on attack days"
@@ -101,7 +113,7 @@ export default function Dashboard({ records, stats, progress }) {
             severityDelta === null ? (
               <span className="text-xs text-slate-300">no prior window</span>
             ) : (
-              <Delta value={severityDelta} unit=" pts" />
+              <Delta value={severityDelta} unit=" pts" windowLabel={`prior ${win}`} />
             )
           }
         >
@@ -160,7 +172,7 @@ export default function Dashboard({ records, stats, progress }) {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card title="Migraine frequency — trailing 28 days">
-          <FrequencyTrend records={scoped} />
+          <FrequencyTrend records={scoped} fullRecords={records} />
         </Card>
         <Card title="Daily wellbeing (migraine days marked)">
           <WellbeingChart records={scoped} />

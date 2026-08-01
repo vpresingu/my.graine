@@ -17,11 +17,13 @@ const COLUMNS = [
   { key: "cycle_day", label: "Cycle", get: (r) => r.cycle_day },
   { key: "meds", label: "Meds", get: (r) => (r.meds_acute ? 1 : 0) + (r.meds_preventive ? 1 : 0) },
   { key: "functional_impact_0to3", label: "Impact", get: (r) => r.functional_impact_0to3 },
+  { key: "notes", label: "Note", get: (r) => ((r.notes || "").trim() ? 1 : 0) },
 ];
 
 export default function RecordsLog({ records }) {
   const [sort, setSort] = useState({ key: "day", dir: "desc" }); // newest first
   const [migraineOnly, setMigraineOnly] = useState(false);
+  const [withNoteOnly, setWithNoteOnly] = useState(false);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [query, setQuery] = useState("");
@@ -38,6 +40,7 @@ export default function RecordsLog({ records }) {
   const filtered = useMemo(() => {
     let out = records;
     if (migraineOnly) out = out.filter((r) => r.migraine === 1);
+    if (withNoteOnly) out = out.filter((r) => (r.notes || "").trim());
     if (from) out = out.filter((r) => r.date >= from);
     if (to) out = out.filter((r) => r.date <= to);
     if (query.trim()) {
@@ -52,13 +55,14 @@ export default function RecordsLog({ records }) {
       return sort.dir === "asc" ? cmp : -cmp;
     });
     return out;
-  }, [records, migraineOnly, from, to, query, sort]);
+  }, [records, migraineOnly, withNoteOnly, from, to, query, sort]);
 
   const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pageRows = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
-  useEffect(() => setPage(0), [migraineOnly, from, to, query]);
+  useEffect(() => setPage(0), [migraineOnly, withNoteOnly, from, to, query]);
 
   const migraineDays = records.filter((r) => r.migraine).length;
+  const noteDays = records.filter((r) => (r.notes || "").trim()).length;
 
   const toggleSort = (key) =>
     setSort((s) =>
@@ -79,6 +83,10 @@ export default function RecordsLog({ records }) {
           <span className="font-bold text-coral-600">{migraineDays}</span>{" "}
           <span className="text-slate-400">migraine days</span>
         </span>
+        <span>
+          <span className="font-bold text-slate-700">{noteDays}</span>{" "}
+          <span className="text-slate-400">days with a note</span>
+        </span>
         <span className="text-slate-400">{formatDateRange(records)}</span>
         <span className="ml-auto text-xs text-slate-300">
           showing {filtered.length} of {records.length}
@@ -96,6 +104,16 @@ export default function RecordsLog({ records }) {
           }`}
         >
           Migraine days only
+        </button>
+        <button
+          onClick={() => setWithNoteOnly(!withNoteOnly)}
+          className={`rounded-full border px-3.5 py-1.5 font-medium transition-colors ${
+            withNoteOnly
+              ? "border-coral-500 bg-coral-500 text-white"
+              : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+          }`}
+        >
+          💬 With a note
         </button>
         <label className="flex items-center gap-1.5 text-slate-500">
           from
@@ -143,7 +161,6 @@ export default function RecordsLog({ records }) {
                   )}
                 </th>
               ))}
-              <th className="px-3 py-2.5" />
             </tr>
           </thead>
           <tbody className="text-slate-600">
@@ -207,13 +224,21 @@ export default function RecordsLog({ records }) {
                     {[r.meds_acute, r.meds_preventive].filter(Boolean).join(" · ") || "—"}
                   </td>
                   <td className="px-3 py-2 tabular-nums">{r.functional_impact_0to3}</td>
-                  <td className="px-3 py-2 text-slate-300">
-                    {hasNotes ? (isOpen ? "▾" : "▸") : ""}
+                  <td className="max-w-40 px-3 py-2">
+                    {hasNotes ? (
+                      <span className="flex items-center gap-1 text-slate-500">
+                        <span className="shrink-0">💬</span>
+                        <span className="truncate italic">{r.notes.trim()}</span>
+                        <span className="shrink-0 text-slate-300">{isOpen ? "▾" : "▸"}</span>
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                 </tr>,
                 isOpen && (
                   <tr key={`${r.day}-notes`} className="border-t border-slate-100 bg-coral-50/40">
-                    <td colSpan={COLUMNS.length + 1} className="px-6 py-3">
+                    <td colSpan={COLUMNS.length} className="px-6 py-3">
                       <p className="text-sm italic leading-relaxed text-slate-600">
                         “{r.notes}”
                       </p>
@@ -224,7 +249,7 @@ export default function RecordsLog({ records }) {
             })}
             {!pageRows.length && (
               <tr>
-                <td colSpan={COLUMNS.length + 1} className="px-4 py-10 text-center text-slate-400">
+                <td colSpan={COLUMNS.length} className="px-4 py-10 text-center text-slate-400">
                   No days match the current filters.
                 </td>
               </tr>

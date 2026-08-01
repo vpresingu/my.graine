@@ -23,7 +23,7 @@ export function CountUpNumber({ value, decimals = 0, suffix = "" }) {
 }
 
 // delta > 0 is shown as worse (coral), delta < 0 as better (green).
-export function Delta({ value, unit = "" }) {
+export function Delta({ value, unit = "", windowLabel = "prior 28" }) {
   if (value === null || value === undefined) {
     return <span className="text-xs text-slate-300">no prior window</span>;
   }
@@ -36,7 +36,7 @@ export function Delta({ value, unit = "" }) {
       className={`text-xs font-semibold ${worse ? "text-coral-600" : "text-emerald-600"}`}
     >
       {worse ? "▲" : "▼"} {Math.abs(value)}
-      {unit} vs prior 28
+      {unit} vs {windowLabel}
     </span>
   );
 }
