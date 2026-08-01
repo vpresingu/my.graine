@@ -1,6 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import CalendarHeatmap from "./CalendarHeatmap";
-import DisabilityGauge from "./DisabilityGauge";
 import FrequencyTrend from "./FrequencyTrend";
 import WellbeingChart from "./WellbeingChart";
 import { CountUpNumber, Delta, KpiTile } from "./KpiTile";
@@ -11,7 +10,7 @@ import {
   scopeRecords,
 } from "../lib/metrics";
 
-const SCOPES = ["30", "60", "90", "all"];
+const SCOPES = ["30", "60", "90", "all", "custom"];
 
 function Card({ title, children, className = "" }) {
   return (
@@ -53,9 +52,27 @@ function ResponderTile({ progress }) {
 
 export default function Dashboard({ records, stats, progress }) {
   const [scope, setScope] = useState("90");
+  const [customDays, setCustomDays] = useState("45");
   const [selectedDay, setSelectedDay] = useState(null);
 
-  const scoped = useMemo(() => scopeRecords(records, scope), [records, scope]);
+  // Clearing the box to type a new number leaves it momentarily empty; redrawing
+  // the whole dashboard at 1 day for those keystrokes is jarring, so the last
+  // valid window stays on screen until a usable one replaces it. Asking for more
+  // days than exist just means "everything".
+  const [customWindow, setCustomWindow] = useState(45);
+  useEffect(() => {
+    const n = Math.round(Number(customDays));
+    if (Number.isFinite(n) && n >= 1) {
+      setCustomWindow(Math.min(n, Math.max(records.length, 1)));
+    }
+  }, [customDays, records.length]);
+
+  const effectiveScope = scope === "custom" ? String(customWindow) : scope;
+
+  const scoped = useMemo(
+    () => scopeRecords(records, effectiveScope),
+    [records, effectiveScope]
+  );
   // KPI window follows the scope; delta compares the equally-sized window
   // immediately before it (null when the diary isn't long enough).
   const win = scoped.length;
@@ -83,20 +100,41 @@ export default function Dashboard({ records, stats, progress }) {
             {stats ? `${stats.total_days} days · ${stats.migraine_days} migraine days total` : ""}
           </span>
         </h2>
-        <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
-          {SCOPES.map((s) => (
-            <button
-              key={s}
-              onClick={() => setScope(s)}
-              className={`rounded-md px-3 py-1 font-medium capitalize transition-colors ${
-                scope === s
-                  ? "bg-coral-500 text-white"
-                  : "text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {s === "all" ? "All" : `${s}d`}
-            </button>
-          ))}
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-slate-200 bg-white p-0.5 text-sm">
+            {SCOPES.map((s) => (
+              <button
+                key={s}
+                onClick={() => setScope(s)}
+                className={`rounded-md px-3 py-1 font-medium transition-colors ${
+                  scope === s
+                    ? "bg-coral-500 text-white"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {s === "all" ? "All" : s === "custom" ? "Custom" : `${s}d`}
+              </button>
+            ))}
+          </div>
+          {scope === "custom" && (
+            <div className="flex items-center gap-1.5 rounded-lg border border-coral-200 bg-coral-50 px-2.5 py-1 text-sm">
+              <input
+                type="number"
+                min={1}
+                max={records.length}
+                value={customDays}
+                onChange={(e) => setCustomDays(e.target.value)}
+                aria-label="Custom window length in days"
+                className="w-16 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-center font-semibold tabular-nums text-slate-800 focus:border-coral-400 focus:outline-none"
+              />
+              <span className="text-slate-500">
+                days
+                {String(customWindow) !== customDays.trim() && (
+                  <span className="ml-1 text-coral-600">→ {customWindow}</span>
+                )}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -179,15 +217,12 @@ export default function Dashboard({ records, stats, progress }) {
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card title="Disability" className="lg:col-span-1">
-          <DisabilityGauge records={scoped} />
-        </Card>
-        <Card title="About these numbers" className="lg:col-span-2">
+      <div className="grid grid-cols-1 gap-4">
+        <Card title="About these numbers">
           <p className="text-sm leading-relaxed text-slate-500">
             Everything on this screen is computed locally from your {records.length}
-            -day diary. The 30 / 90 / All control rescopes the whole screen: the
-            KPIs cover the last {win} recorded days and compare against the
+            -day diary. The 30 / 60 / 90 / All / Custom control rescopes the whole
+            screen: the KPIs cover the last {win} recorded days and compare against the
             equally-sized window before them, and the calendar and charts redraw
             to match. The preventive-response badge comes from the on-device model
             comparing migraine frequency before and after your preventive
