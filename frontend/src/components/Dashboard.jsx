@@ -186,9 +186,10 @@ export default function Dashboard({ records, stats, progress }) {
         <Card title="About these numbers" className="lg:col-span-2">
           <p className="text-sm leading-relaxed text-slate-500">
             Everything on this screen is computed locally from your {records.length}
-            -day diary. The calendar and charts rescope with the 30 / 90 / All
-            control; KPI windows use the last 28 recorded days within the current
-            scope. The preventive-response badge comes from the on-device model
+            -day diary. The 30 / 90 / All control rescopes the whole screen: the
+            KPIs cover the last {win} recorded days and compare against the
+            equally-sized window before them, and the calendar and charts redraw
+            to match. The preventive-response badge comes from the on-device model
             comparing migraine frequency before and after your preventive
             medication started — it organizes your data and is not medical advice.
           </p>

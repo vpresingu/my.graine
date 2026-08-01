@@ -47,7 +47,10 @@ export default function DailyLog({ onSaved, records = [] }) {
     symptoms: [],
     sleep_hours_prev_night: 7.5,
     stress_1to10: 3,
-    cycle_day: 1,
+    // Mid-cycle. Defaulting to day 1 would silently mark every untouched entry
+    // perimenstrual (the window is cycle_day >= 26 or <= 2), inflating the very
+    // trigger the Insights screen ranks first.
+    cycle_day: 14,
     meds_acute: "",
     meds_preventive: "",
   });
@@ -185,7 +188,7 @@ export default function DailyLog({ onSaved, records = [] }) {
       symptoms: form.symptoms,
       sleep_hours_prev_night: form.sleep_hours_prev_night,
       stress_1to10: form.stress_1to10,
-      cycle_day: Number(form.cycle_day) || 1,
+      cycle_day: Number(form.cycle_day) || 14,
       barometric_drop: 0,
       meds_acute: form.meds_acute.trim() || null,
       meds_preventive: form.meds_preventive.trim() || null,
@@ -329,7 +332,7 @@ export default function DailyLog({ onSaved, records = [] }) {
               </div>
             </Field>
 
-            <Field label="Cycle day">
+            <Field label="Cycle day" hint="day 1 = period starts">
               <input
                 type="number"
                 min={1}
@@ -338,6 +341,10 @@ export default function DailyLog({ onSaved, records = [] }) {
                 onChange={(e) => set("cycle_day", e.target.value)}
                 className="h-11 w-24 rounded-xl border border-slate-200 px-3 text-center text-lg font-semibold text-slate-800 focus:border-coral-400 focus:outline-none"
               />
+              <p className="mt-1.5 text-xs text-slate-400">
+                Days 26–2 count as the perimenstrual window in Trigger Insights.
+                Leave at 14 if you don't track a cycle.
+              </p>
             </Field>
           </div>
 
@@ -484,45 +491,57 @@ export default function DailyLog({ onSaved, records = [] }) {
                 </div>
               )}
 
-              <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
-                <span className="text-sm font-semibold text-slate-700">Migraine today?</span>
-                {[
-                  { v: 1, label: "Yes" },
-                  { v: 0, label: "No" },
-                ].map(({ v, label }) => (
-                  <button
-                    key={v}
-                    onClick={() => setMigraine(v)}
-                    className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
-                      migraine === v
-                        ? "bg-slate-800 text-white"
-                        : "bg-slate-100 text-slate-500 hover:bg-slate-200"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={saveDay}
-                disabled={saving || saved !== null}
-                className="w-full rounded-xl bg-slate-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-900 disabled:bg-slate-300"
-              >
-                {saving
-                  ? "Saving…"
-                  : saved !== null
-                    ? "Saved ✓"
-                    : `Save day — ${entryDateLabel}`}
-              </button>
-
-              {saved !== null && (
-                <p className="animate-rise text-center text-sm font-medium text-emerald-600">
-                  Saved as day {saved} — the dashboard now includes it.
-                </p>
-              )}
             </div>
           )}
+
+          {/* Saving is deliberately independent of the model. Analysis enriches
+              an entry; it must never be the only way to record one — the model
+              can be slow, offline, or simply unwanted for a quick log. */}
+          <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold text-slate-700">Migraine today?</span>
+              {[
+                { v: 1, label: "Yes" },
+                { v: 0, label: "No" },
+              ].map(({ v, label }) => (
+                <button
+                  key={v}
+                  onClick={() => setMigraine(v)}
+                  className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+                    migraine === v
+                      ? "bg-slate-800 text-white"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={saveDay}
+              disabled={saving || saved !== null}
+              className="w-full rounded-xl bg-slate-800 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-900 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {saving
+                ? "Saving…"
+                : saved !== null
+                  ? "Saved ✓"
+                  : `Save day — ${entryDateLabel}`}
+            </button>
+
+            {saved === null && (
+              <p className="text-center text-xs text-slate-400">
+                Analyzing your entry is optional — you can save the day without it.
+              </p>
+            )}
+
+            {saved !== null && (
+              <p className="animate-rise text-center text-sm font-medium text-emerald-600">
+                Saved as day {saved} — the dashboard now includes it.
+              </p>
+            )}
+          </div>
         </section>
       </div>
     </div>
