@@ -12,3 +12,7 @@ frontend:
 
 build:
 	cd frontend && npm run build
+
+# Pre-compute all model analyses so every screen loads instantly (run before demos)
+warm:
+	cd backend && python warm.py
