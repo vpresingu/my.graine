@@ -11,7 +11,7 @@ import {
   scopeRecords,
 } from "../lib/metrics";
 
-const SCOPES = ["30", "90", "all"];
+const SCOPES = ["30", "60", "90", "all"];
 
 function Card({ title, children, className = "" }) {
   return (
@@ -52,7 +52,7 @@ function ResponderTile({ progress }) {
 }
 
 export default function Dashboard({ records, stats, progress }) {
-  const [scope, setScope] = useState("all");
+  const [scope, setScope] = useState("90");
   const [selectedDay, setSelectedDay] = useState(null);
 
   const scoped = useMemo(() => scopeRecords(records, scope), [records, scope]);
