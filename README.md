@@ -28,8 +28,6 @@ Migraine is a chronic condition managed over months and years through a headache
  
 My-Graine does that reasoning **locally**. You log how you feel each day in plain language; Gemma 4, running on your own machine, turns it into a structured clinical record, finds your real triggers (and throws out the coincidences), tracks whether your treatment is working, and writes the doctor-ready history you could never assemble yourself.
  
-**We were offered free cloud GPU inference for this hackathon and deliberately declined it for the product** — because the entire premise is that a person's most intimate health data never touches a server. You can verify this claim in the strongest possible way: **turn on airplane mode and the whole app still works.**
- 
 ---
  
 ## Background: why migraine is the right problem
