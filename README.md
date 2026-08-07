@@ -1,4 +1,10 @@
 # My-Graine 🧠
+
+Contributors: 
+- Umair Iqbal
+- Ved Presingu
+- Danish Ali
+- Yash Chaudhari
  
 **A fully on-device migraine intelligence journal — powered by Google's Gemma 4, running entirely on your machine. No cloud. No network. Your health data never leaves the device.**
  
